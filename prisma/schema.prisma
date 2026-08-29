@@ -1,0 +1,262 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model auth_audit_log {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String?  @db.Uuid
+  action     String   @db.VarChar(80)
+  payload    Json     @default("{}")
+  ip_address String?  @db.VarChar(60)
+  user_agent String?  @db.VarChar(400)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  user       user?    @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([action], map: "idx_auth_audit_action")
+  @@index([created_at], map: "idx_auth_audit_created")
+  @@index([user_id], map: "idx_auth_audit_user")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model flow_state {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String?               @db.Uuid
+  auth_code             String                @db.VarChar(255)
+  code_challenge        String                @db.VarChar(255)
+  code_challenge_method code_challenge_method @default(S256)
+  provider_type         String                @db.VarChar(60)
+  authentication_method String                @db.VarChar(60)
+  auth_code_issued_at   DateTime?             @db.Timestamptz(6)
+  created_at            DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime              @default(now()) @db.Timestamptz(6)
+  user                  user?                 @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([auth_code], map: "idx_flow_state_auth_code")
+  @@index([created_at], map: "idx_flow_state_created")
+  @@index([user_id], map: "idx_flow_state_user")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model identity {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id         String    @db.Uuid
+  provider        String    @db.VarChar(60)
+  provider_id     String    @db.VarChar(255)
+  identity_data   Json      @default("{}")
+  email           String?   @db.VarChar(180)
+  last_sign_in_at DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  user            user      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider, provider_id], map: "uq_identity_provider")
+  @@index([email], map: "idx_identity_email")
+  @@index([user_id], map: "idx_identity_user")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model mfa_challenge {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  factor_id   String     @db.Uuid
+  verified_at DateTime?  @db.Timestamptz(6)
+  ip_address  String?    @db.VarChar(60)
+  otp_code    String?    @db.VarChar(10)
+  created_at  DateTime   @default(now()) @db.Timestamptz(6)
+  mfa_factor  mfa_factor @relation(fields: [factor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([factor_id], map: "idx_mfa_challenge_factor")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model mfa_factor {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String          @db.Uuid
+  friendly_name      String?         @db.VarChar(120)
+  factor_type        factor_type
+  status             factor_status   @default(UNVERIFIED)
+  secret             String?         @db.VarChar(255)
+  phone              String?         @db.VarChar(30)
+  last_challenged_at DateTime?       @db.Timestamptz(6)
+  created_at         DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime        @default(now()) @db.Timestamptz(6)
+  mfa_challenge      mfa_challenge[]
+  user               user            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  session            session[]
+
+  @@unique([user_id, friendly_name], map: "uq_mfa_factor_name")
+  @@index([user_id], map: "idx_mfa_factor_user")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model one_time_token {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String              @db.Uuid
+  token_type  one_time_token_type
+  token_hash  String              @db.VarChar(255)
+  relates_to  String?             @db.VarChar(255)
+  expires_at  DateTime            @db.Timestamptz(6)
+  consumed_at DateTime?           @db.Timestamptz(6)
+  created_at  DateTime            @default(now()) @db.Timestamptz(6)
+  user        user                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, token_type], map: "uq_ott_user_type")
+  @@index([expires_at], map: "idx_ott_expires")
+  @@index([token_hash], map: "idx_ott_hash")
+}
+
+model permission {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String            @unique @db.VarChar(100)
+  name            String            @db.VarChar(150)
+  module          String            @db.VarChar(60)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  role_permission role_permission[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model refresh_token {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  token_hash String   @unique @db.VarChar(255)
+  parent     String?  @db.Uuid
+  revoked    Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  session    session  @relation(fields: [session_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user       user     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([parent], map: "idx_refresh_token_parent")
+  @@index([session_id], map: "idx_refresh_token_session")
+  @@index([user_id], map: "idx_refresh_token_user")
+}
+
+model role {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String            @unique @db.VarChar(50)
+  name            String            @db.VarChar(100)
+  description     String?           @db.VarChar(255)
+  is_system       Boolean           @default(false)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  role_permission role_permission[]
+  user            user[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model role_permission {
+  role_id       String     @db.Uuid
+  permission_id String     @db.Uuid
+  permission    permission @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  role          role       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([role_id, permission_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model session {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String          @db.Uuid
+  factor_id     String?         @db.Uuid
+  aal           aal_level       @default(AAL1)
+  not_after     DateTime?       @db.Timestamptz(6)
+  refreshed_at  DateTime?       @db.Timestamptz(6)
+  user_agent    String?         @db.VarChar(400)
+  ip_address    String?         @db.VarChar(60)
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @db.Timestamptz(6)
+  refresh_token refresh_token[]
+  mfa_factor    mfa_factor?     @relation(fields: [factor_id], references: [id], onUpdate: NoAction)
+  user          user            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([not_after], map: "idx_session_not_after")
+  @@index([user_id], map: "idx_session_user")
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+model user {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                 String           @unique @db.VarChar(180)
+  email_confirmed_at    DateTime?        @db.Timestamptz(6)
+  phone                 String?          @unique @db.VarChar(30)
+  phone_confirmed_at    DateTime?        @db.Timestamptz(6)
+  password_hash         String?          @db.VarChar(255)
+  full_name             String           @db.VarChar(150)
+  user_type             user_type
+  role_id               String?          @db.Uuid
+  status                user_status      @default(ACTIVE)
+  is_super_admin        Boolean          @default(false)
+  banned_until          DateTime?        @db.Timestamptz(6)
+  failed_login_attempts Int              @default(0) @db.SmallInt
+  locked_until          DateTime?        @db.Timestamptz(6)
+  app_metadata          Json             @default("{}")
+  user_metadata         Json             @default("{}")
+  is_sso_user           Boolean          @default(false)
+  is_anonymous          Boolean          @default(false)
+  last_login_at         DateTime?        @db.Timestamptz(6)
+  created_at            DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime         @default(now()) @db.Timestamptz(6)
+  deleted_at            DateTime?        @db.Timestamptz(6)
+  auth_audit_log        auth_audit_log[]
+  flow_state            flow_state[]
+  identity              identity[]
+  mfa_factor            mfa_factor[]
+  one_time_token        one_time_token[]
+  refresh_token         refresh_token[]
+  session               session[]
+  role                  role?            @relation(fields: [role_id], references: [id], onUpdate: NoAction)
+
+  @@index([deleted_at], map: "idx_app_user_deleted")
+  @@index([role_id], map: "idx_app_user_role")
+  @@index([status], map: "idx_app_user_status")
+  @@index([user_type], map: "idx_app_user_user_type")
+}
+
+enum aal_level {
+  AAL1
+  AAL2
+  AAL3
+}
+
+enum code_challenge_method {
+  S256
+  PLAIN
+}
+
+enum factor_status {
+  UNVERIFIED
+  VERIFIED
+}
+
+enum factor_type {
+  TOTP
+  PHONE
+  WEBAUTHN
+}
+
+enum one_time_token_type {
+  CONFIRMATION
+  RECOVERY
+  REAUTHENTICATION
+  EMAIL_CHANGE_NEW
+  EMAIL_CHANGE_CURRENT
+  PHONE_CHANGE
+}
+
+enum user_status {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum user_type {
+  STAFF
+  CUSTOMER
+}
