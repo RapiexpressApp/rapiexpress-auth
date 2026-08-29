@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { validateEnv } from '~/common/config/env.validation';
-import { DatabaseModule } from '~/database/database.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { ConfigService } from '@nestjs/config';
+
+import { validateEnv } from './common/config/env.validation.js';
+import { DatabaseModule } from './database/database.module.js';
+import { AuthModule } from './auth/auth.module.js';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ConfigService } from '@nestjs/config';
     }),
 
     ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         throttlers: [
@@ -23,7 +25,9 @@ import { ConfigService } from '@nestjs/config';
         ],
       }),
     }),
+
     DatabaseModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

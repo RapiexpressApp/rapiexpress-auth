@@ -1,7 +1,5 @@
 allowBuilds:
   '@prisma/engines': true
-  esbuild: true
-  msgpackr-extract: true
+  '@scarf/scarf': false
+  argon2: true
   prisma: true
-  unrs-resolver: true
-  workerd: true
