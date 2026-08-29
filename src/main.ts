@@ -12,7 +12,6 @@ import { AppModule } from './app.module.js';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
-  const isProduction = process.env.NODE_ENV === 'production';
   const port = Number(process.env.PORT ?? 3000);
 
   app.use(helmet());
@@ -21,13 +20,12 @@ async function bootstrap(): Promise<void> {
   const server = app.getHttpAdapter().getInstance() as Express;
 
   server.set('trust proxy', 1);
+
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));
 
   app.enableCors({
-    origin: isProduction
-      ? (process.env.FRONTEND_URL?.split(',').map((origin) => origin.trim()) ?? [])
-      : true,
+    origin: process.env.FRONTEND_URL?.split(',').map((origin) => origin.trim()) ?? true,
     credentials: true,
   });
 
@@ -44,33 +42,36 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  if (!isProduction) {
-    const config = new DocumentBuilder()
-      .setTitle('RapiExpress Auth API')
-      .setDescription('API REST de autenticación y autorización de RapiExpress')
-      .setVersion('1.0')
-      .addTag('auth')
-      .addCookieAuth(
-        ACCESS_TOKEN_COOKIE,
-        {
-          type: 'apiKey',
-          in: 'cookie',
-          name: ACCESS_TOKEN_COOKIE,
-          description:
-            'Cookie HttpOnly con el token de acceso generada automáticamente al iniciar sesión.',
-        },
-        'cookieAuth',
-      )
-      .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('docs', app, document, {
-      swaggerOptions: { withCredentials: true, persistAuthorization: true },
-    });
-    console.log(`Swagger: http://localhost:${port}/docs`);
-  }
+  const config = new DocumentBuilder()
+    .setTitle('RapiExpress Auth API')
+    .setDescription('API REST de autenticación y autorización de RapiExpress')
+    .setVersion('1.0')
+    .addTag('auth')
+    .addCookieAuth(
+      ACCESS_TOKEN_COOKIE,
+      {
+        type: 'apiKey',
+        in: 'cookie',
+        name: ACCESS_TOKEN_COOKIE,
+        description:
+          'Cookie HttpOnly con el token de acceso generada automáticamente al iniciar sesión.',
+      },
+      'cookieAuth',
+    )
+    .build();
 
-  await app.listen(port);
+  const document = SwaggerModule.createDocument(app, config);
 
+  SwaggerModule.setup('docs', app, document, {
+    swaggerOptions: {
+      withCredentials: true,
+      persistAuthorization: true,
+    },
+  });
+
+  await app.listen(port, '0.0.0.0');
+
+  console.log(`Swagger: http://localhost:${port}/docs`);
   console.log(`Application running on: http://localhost:${port}/api`);
 }
 
